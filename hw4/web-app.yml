@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-app-config
+  labels:
+    app: web-app
+data:
+  APP_ENV: "production"
+  DB_HOST: "backend-service"
+  DB_NAME: "mydb"
+  DB_USER: "postgres"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      initContainers:
+      - name: init-config
+        image: busybox
+        command: ['sh', '-c', 'echo Init container started; sleep 5']
+      containers:
+      - name: web-app
+        image: slfdstrctd/web:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: web-app-config
+              key: APP_ENV
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: web-app-config
+              key: DB_HOST
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: web-app-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: web-app-config
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: DB_PASSWORD
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-service
+  labels:
+    app: web-app
+spec:
+  selector:
+    app: web-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+  type: LoadBalancer
