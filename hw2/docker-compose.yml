@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  init-service:
+    image: busybox
+    container_name: init-service
+    command: ["sh", "-c", "echo 'Initializing...'"]
+    depends_on:
+      - db
+    networks:
+      - jupyter_network
+
+  jupyterhub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jupyterhub
+    depends_on:
+      - init-service
+      - db
+    volumes:
+      - jupyterhub_data:/jupyter
+      - ./jupyterhub_config.py:/srv/jupyterhub/jupyterhub_config.py
+    ports:
+      - "8000:8000"
+    networks:
+      - jupyter_network
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  db:
+    image: postgres:13
+    container_name: db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - jupyter_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  jupyterhub_data:
+  db_data:
+
+networks:
+  jupyter_network:

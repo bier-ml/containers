@@ -1,0 +1,15 @@
+FROM jupyterhub/jupyterhub:3.1.1
+
+USER root
+
+RUN apt-get update
+RUN apt-get install -y python3-dev make gcc
+
+COPY . /jupyterhub
+
+WORKDIR /jupyterhub
+
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+EXPOSE 8000
+ENTRYPOINT ["jupyterhub", "--log-level=DEBUG"]
